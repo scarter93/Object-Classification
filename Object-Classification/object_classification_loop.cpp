@@ -160,10 +160,11 @@ private:
 };
 
 /* Function prototypes */
-void Train(const Caltech101 &Dataset, Mat &codeBook, vector<vector<Mat>> &imageDescriptors, const int numCodewords);
+void Train(const Caltech101 &Dataset, Mat &codeBook, vector<vector<Mat>> &imageDescriptors, const int numCodewords,vector<vector<vector<KeyPoint>>> &results, Mat &D, Ptr<DescriptorExtractor> descriptor_extractor);
 void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat>> &imageDescriptors);
 static bool LiesInside(Rect rectangle, KeyPoint point);
 
+void keypoints_train(const Caltech101 &Dataset, vector<vector<vector<KeyPoint>>> &results, Mat &D, Ptr<DescriptorExtractor> descriptor_extractor);
 
 int main(void)
 {
@@ -178,7 +179,7 @@ int main(void)
 	const int numTestingData = 2;
 
 	/* Set the number of codewords*/
-	const int numCodewords = 20;
+	const int numCodewords[13] = {10,20,50,100,200,300,400,500,600,700,800,900,1000};
 
 	/* Load the dataset by instantiating the helper class */
 	Caltech101 Dataset(datasetPath, numTrainingData, numTestingData);
@@ -196,40 +197,48 @@ int main(void)
 	vector<vector<Mat>> imageDescriptors;
 	vector<vector<Mat>> categoryDescriptor;
 
-		/* Training */
-		Train(Dataset, codeBook, imageDescriptors, numCodewords);
-
-	/* Testing */
-	Test(Dataset, codeBook, imageDescriptors);
-	return 1;
-}
-
-/* Train BoW */
-void Train(const Caltech101 &Dataset, Mat &codeBook, vector<vector<Mat>> &imageDescriptors, const int numCodewords)
-{
-	Ptr<FeatureDetector> feature_detector = FeatureDetector::create("SIFT");
 	Ptr<DescriptorExtractor> descriptor_extract = DescriptorExtractor::create("SIFT");
 
 	Mat D;
+	vector<vector<vector<KeyPoint>>> results;
+
+		
+	keypoints_train(Dataset, results, D, descriptor_extract);
+
+	/* Training */
+	for(int i = 0; i < 13; i++) {
+		Train(Dataset, codeBook, imageDescriptors, numCodewords[i], results, D, descriptor_extract);
+
+	/* Testing */
+		Test(Dataset, codeBook, imageDescriptors);
+	}
+
+	std::system("Pause");
+
+	return 1;
+}
+
+void keypoints_train(const Caltech101 &Dataset,vector<vector<vector<KeyPoint>>> &results, Mat &D, Ptr<DescriptorExtractor> descriptor_extract){
+
+	Ptr<FeatureDetector> feature_detector = FeatureDetector::create("SIFT");
 	vector<KeyPoint> store_kp;
 
-	vector<vector<vector<KeyPoint>>> results;
 	int k = 0;
 	int images = Dataset.trainingImages[0].size();
 	int category = Dataset.trainingImages.size();
 	Mat I;
 	Mat current_d;
 
-	results.resize(Dataset.trainingAnnotations.size());
+	results.resize(Dataset.trainingImages.size());
 	cout << "Generating Keypoints" << endl;
 	for (int i = 0; i < category; i++) {
-		results[i].resize(Dataset.trainingAnnotations[i].size());
+		results[i].resize(Dataset.trainingImages[i].size());
 		for (int j = 0; j < images; j++) { 
 
 			I = Dataset.trainingImages[i][j];
 			feature_detector->detect(I, store_kp);
 
-			Rect const& to_remove = Dataset.trainingAnnotations[i][j];
+			Rect to_remove = Dataset.trainingAnnotations[i][j];
 
 			store_kp.erase(
 				std::remove_if(
@@ -251,7 +260,14 @@ void Train(const Caltech101 &Dataset, Mat &codeBook, vector<vector<Mat>> &imageD
 
 		}
 	}
-	
+}
+
+/* Train BoW */
+void Train(const Caltech101 &Dataset, Mat &codeBook, vector<vector<Mat>> &imageDescriptors, const int numCodewords,vector<vector<vector<KeyPoint>>> &results, Mat &D, Ptr<DescriptorExtractor> descriptor_extract)
+{
+	int images = Dataset.trainingImages[0].size();
+	int category = Dataset.trainingImages.size();
+	Mat I;
 	BOWKMeansTrainer trainer(numCodewords);
 	trainer.add(D);
 	codeBook = trainer.cluster();
@@ -261,17 +277,18 @@ void Train(const Caltech101 &Dataset, Mat &codeBook, vector<vector<Mat>> &imageD
 
 	BOW_extract->setVocabulary(codeBook);
 
-	Mat BOW_obj;
 	
-	imageDescriptors.resize(Dataset.trainingAnnotations.size());
+	
+	imageDescriptors.resize(Dataset.trainingImages.size());
 	cout << "Creating Histograms" << endl;
 	for (int i = 0; i < category; i++) {
-		imageDescriptors[i].resize(Dataset.trainingAnnotations[i].size());
+		imageDescriptors[i].resize(Dataset.trainingImages[i].size());
 		for (int j = 0; j < images; j++) {
-
-			I = Dataset.trainingImages[i][j];
 			
-			BOW_extract->compute2(I, results[i][j], BOW_obj);
+			Mat BOW_obj;
+			I = Dataset.trainingImages[i][j];
+			vector<KeyPoint> &input = results[i][j];
+			BOW_extract->compute2(I, input, BOW_obj);
 			imageDescriptors[i][j] = BOW_obj;
 		}
 	}
@@ -284,16 +301,9 @@ void Train(const Caltech101 &Dataset, Mat &codeBook, vector<vector<Mat>> &imageD
 	imshow("Keypoints", image_out);
 	waitKey(1);*/
 	
-	std::system("Pause");
+	//std::system("Pause");
 }
 
-//static bool LiesInside(Rect rectangle, KeyPoint point) {
-//	if ((point.pt.x > rectangle.x && point.pt.x < (rectangle.width + rectangle.x)) &&
-//		(point.pt.y > rectangle.y && point.pt.y < (rectangle.height + rectangle.y))) {
-//		return true;
-//	}
-//	return false;
-//}
 
 /* Test BoW */
 void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat>> &imageDescriptors)
@@ -315,7 +325,7 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 	Mat current_d;
 	Mat BOW_obj;
 
-	results.resize(Dataset.testImage.size());
+	results.resize(Dataset.testImages.size());
 	cout << "Generating Keypoints" << endl;
 	for (int i = 0; i < category; i++) {
 		results[i].resize(Dataset.testImages[i].size());
@@ -324,7 +334,7 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 			I = Dataset.testImages[i][j];
 			feature_detector->detect(I, store_kp);
 
-			Rect const& to_remove = Dataset.testAnnotations[i][j];
+			Rect to_remove = Dataset.testAnnotations[i][j];
 
 			store_kp.erase(
 				std::remove_if(
@@ -360,8 +370,8 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 			I = Dataset.testImages[i][j];
 			BOW_extract->compute2(I, results[i][j], BOW_obj);
 
-			cout << "Size of test Imag: " << BOW_obj.size() << endl;
-			cout << "Size of descriptor: " << imageDescriptors[0][0].size() << endl;
+			/*cout << "Size of test Imag: " << BOW_obj.size() << endl;
+			cout << "Size of descriptor: " << imageDescriptors[0][0].size() << endl;*/
 
 			double min = DBL_MAX;
 
@@ -389,5 +399,5 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 	}
 	float rec_rate = ((float)correct) / ((float)total);
 	cout << "Recognition Rate is: " << rec_rate << endl;
-	std::system("pause");
+	//std::system("pause");
 }
