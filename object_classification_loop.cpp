@@ -204,9 +204,9 @@ int main(void)
 	Mat D;
 	vector<vector<vector<KeyPoint>>> results;
 
-	myfile.open("results_test_noremove.txt");
+		
 	keypoints_train(Dataset, results, D, descriptor_extract);
-	
+	myfile.open("results_test_noremove.txt");
 	/* Training */
 	for(int i = 0; i < 13; i++) {
 		Train(Dataset, codeBook, imageDescriptors, numCodewords[i], results, D, descriptor_extract);
@@ -214,7 +214,7 @@ int main(void)
 	/* Testing */
 		Test(Dataset, codeBook, imageDescriptors);
 	}
-	myfile.close();
+
 	std::system("Pause");
 
 	return 1;
