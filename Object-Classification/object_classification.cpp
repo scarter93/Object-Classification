@@ -315,7 +315,7 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 	Mat current_d;
 	Mat BOW_obj;
 
-	results.resize(Dataset.testImage.size());
+	results.resize(Dataset.testImages.size());
 	cout << "Generating Keypoints" << endl;
 	for (int i = 0; i < category; i++) {
 		results[i].resize(Dataset.testImages[i].size());
