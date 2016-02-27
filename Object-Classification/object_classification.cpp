@@ -207,41 +207,46 @@ int main(void)
 /* Train BoW */
 void Train(const Caltech101 &Dataset, Mat &codeBook, vector<vector<Mat>> &imageDescriptors, const int numCodewords)
 {
+	//create detector and extractor for features
 	Ptr<FeatureDetector> feature_detector = FeatureDetector::create("SIFT");
 	Ptr<DescriptorExtractor> descriptor_extract = DescriptorExtractor::create("SIFT");
 
+	//create D and vector to store keypoints and results
 	Mat D;
 	vector<KeyPoint> store_kp;
-
 	vector<vector<vector<KeyPoint>>> results;
+
+	//initialize variables for loops
 	int k = 0;
 	int images = Dataset.trainingImages[0].size();
 	int category = Dataset.trainingImages.size();
 	Mat I;
 	Mat current_d;
 
+	//resize results for output and start loop
 	results.resize(Dataset.trainingAnnotations.size());
 	cout << "Generating Keypoints" << endl;
 	for (int i = 0; i < category; i++) {
 		results[i].resize(Dataset.trainingAnnotations[i].size());
 		for (int j = 0; j < images; j++) { 
-
+			//take image and detect keypoints
 			I = Dataset.trainingImages[i][j];
 			feature_detector->detect(I, store_kp);
 
 			Rect const& to_remove = Dataset.trainingAnnotations[i][j];
-
+			//remove data outside of annotation
 			store_kp.erase(
 				std::remove_if(
 					store_kp.begin(), store_kp.end(),
 					[&to_remove](KeyPoint k) { return !to_remove.contains(k.pt); }),
 					store_kp.end()
 				);
-			
+			//store results and extract data
 			results[i][j] = store_kp;
 			descriptor_extract->compute(I, store_kp, current_d);
 			D.push_back(current_d);
 
+			// used for saving images
 			/*Mat image_out;
 			drawKeypoints(I, store_kp, image_out, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 			rectangle(image_out, Dataset.trainingAnnotations[i][j], Scalar(255, 255, 255));
@@ -252,23 +257,25 @@ void Train(const Caltech101 &Dataset, Mat &codeBook, vector<vector<Mat>> &imageD
 		}
 	}
 	
+	//create bag of words trainer and cluster
 	BOWKMeansTrainer trainer(numCodewords);
 	trainer.add(D);
 	codeBook = trainer.cluster();
 	
+	//create matcher and BOW extractor
 	Ptr<DescriptorMatcher> desc_matcher = DescriptorMatcher::create("BruteForce");
 	Ptr<BOWImgDescriptorExtractor> BOW_extract = new ::BOWImgDescriptorExtractor(descriptor_extract, desc_matcher);
-
+	//set vocab
 	BOW_extract->setVocabulary(codeBook);
 
 	Mat BOW_obj;
-	
+	//resize image descriptors and start looping
 	imageDescriptors.resize(Dataset.trainingAnnotations.size());
 	cout << "Creating Histograms" << endl;
 	for (int i = 0; i < category; i++) {
 		imageDescriptors[i].resize(Dataset.trainingAnnotations[i].size());
 		for (int j = 0; j < images; j++) {
-
+			//extract data using BOW extractor
 			I = Dataset.trainingImages[i][j];
 			
 			BOW_extract->compute2(I, results[i][j], BOW_obj);
@@ -277,55 +284,49 @@ void Train(const Caltech101 &Dataset, Mat &codeBook, vector<vector<Mat>> &imageD
 	}
 
 	cout << "Training complete" << endl;
-
-	//namedWindow("Keypoints");
-	/*drawKeypoints(I, store_kp, image_out, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	//used to display images
+	/*namedWindow("Keypoints");
+	drawKeypoints(I, store_kp, image_out, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	rectangle(image_out, Dataset.trainingAnnotations[0][0],Scalar(255,255,255));
 	imshow("Keypoints", image_out);
 	waitKey(1);*/
 	
-	std::system("Pause");
+	//std::system("Pause");
 }
 
-//static bool LiesInside(Rect rectangle, KeyPoint point) {
-//	if ((point.pt.x > rectangle.x && point.pt.x < (rectangle.width + rectangle.x)) &&
-//		(point.pt.y > rectangle.y && point.pt.y < (rectangle.height + rectangle.y))) {
-//		return true;
-//	}
-//	return false;
-//}
 
 /* Test BoW */
 void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat>> &imageDescriptors)
 {
+	//create necessary detectors and extractors
 	Ptr<FeatureDetector> feature_detector = FeatureDetector::create("SIFT");
 	Ptr<DescriptorExtractor> descriptor_extract = DescriptorExtractor::create("SIFT");
 
 	Ptr<DescriptorMatcher> desc_matcher = DescriptorMatcher::create("BruteForce");
 	Ptr<BOWImgDescriptorExtractor> BOW_extract = new ::BOWImgDescriptorExtractor(descriptor_extract, desc_matcher);
-
+	//set vocab
 	BOW_extract->setVocabulary(codeBook);
-
+	//initalize and create necessary variables
 	int category = Dataset.testImages.size();
 	int image = Dataset.testImages[0].size();
 	vector<vector<vector<KeyPoint>>> results;
 	vector<KeyPoint> store_kp;
-
 	Mat I;
 	Mat current_d;
 	Mat BOW_obj;
 
+	//resize results and start testing
 	results.resize(Dataset.testImages.size());
 	cout << "Generating Keypoints" << endl;
 	for (int i = 0; i < category; i++) {
 		results[i].resize(Dataset.testImages[i].size());
 		for (int j = 0; j < image; j++) {
-
+			//load test image and detect
 			I = Dataset.testImages[i][j];
 			feature_detector->detect(I, store_kp);
 
 			Rect const& to_remove = Dataset.testAnnotations[i][j];
-
+			//remove bad data, outside annotations
 			store_kp.erase(
 				std::remove_if(
 					store_kp.begin(), store_kp.end(),
@@ -334,7 +335,7 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 				);
 
 			results[i][j] = store_kp;
-
+			//used to save images
 			/*Mat image_out;
 			drawKeypoints(I, store_kp, image_out, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 			rectangle(image_out, Dataset.trainingAnnotations[i][j], Scalar(255, 255, 255));
@@ -345,7 +346,7 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 		}
 	}
 
-
+	//initialize variables
 	cout << "Creating and comparing histograms" << endl;
 	int correct = 0;
 	int total = 0;
@@ -354,9 +355,10 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 	int category_t = Dataset.trainingImages.size();
 	int images_t = Dataset.trainingImages[0].size();
 	string label;
+	//start comparing data
 	for (int i = 0; i < category; i++) {
 		for (int j = 0; j < image; j++) {
-
+			//load test images, compute descriptors
 			I = Dataset.testImages[i][j];
 			BOW_extract->compute2(I, results[i][j], BOW_obj);
 
@@ -364,7 +366,7 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 			cout << "Size of descriptor: " << imageDescriptors[0][0].size() << endl;
 
 			double min = DBL_MAX;
-
+			//check against test images and find best match
 			for (int k = 0; k < category_t; k++) {
 				for (int l = 0; l < images_t; l++) {
 					double value = norm(BOW_obj, imageDescriptors[k][l]);
@@ -375,19 +377,24 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 					}
 				}
 			}
+			//update variables for recogntion rate
 			total++;
 			if (cat == i)
 				correct++;
-			imshow(label, I);
-			waitKey(1);
 
-			std:ostringstream os;
+			//display if desired
+			/*imshow(label, I);
+			waitKey(1);*/
+
+			//save test image if desired
+			/*std:ostringstream os;
 			os << "test_image" << i << "_" << j << "_result_" << label << ".jpg";
-			imwrite(os.str(), I);
+			imwrite(os.str(), I);*/
 
 		}
 	}
+	//display recognition rate
 	float rec_rate = ((float)correct) / ((float)total);
 	cout << "Recognition Rate is: " << rec_rate << endl;
-	std::system("pause");
+	//std::system("pause");
 }

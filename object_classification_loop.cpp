@@ -206,7 +206,11 @@ int main(void)
 
 		
 	keypoints_train(Dataset, results, D, descriptor_extract);
+<<<<<<< HEAD
 	myfile.open("results_test_noremove.txt");
+=======
+	myfile.open("results_train.txt");
+>>>>>>> training-1
 	/* Training */
 	for(int i = 0; i < 13; i++) {
 		Train(Dataset, codeBook, imageDescriptors, numCodewords[i], results, D, descriptor_extract);
@@ -215,6 +219,10 @@ int main(void)
 		Test(Dataset, codeBook, imageDescriptors);
 	}
 
+<<<<<<< HEAD
+=======
+	myfile.close();
+>>>>>>> training-1
 	std::system("Pause");
 
 	return 1;
@@ -232,7 +240,7 @@ void keypoints_train(const Caltech101 &Dataset,vector<vector<vector<KeyPoint>>> 
 	Mat current_d;
 
 	results.resize(Dataset.trainingImages.size());
-	cout << "Generating Keypoints" << endl;
+	cout << "Generating Keypoints 3" << endl;
 	for (int i = 0; i < category; i++) {
 		results[i].resize(Dataset.trainingImages[i].size());
 		for (int j = 0; j < images; j++) { 
@@ -242,12 +250,12 @@ void keypoints_train(const Caltech101 &Dataset,vector<vector<vector<KeyPoint>>> 
 
 			Rect to_remove = Dataset.trainingAnnotations[i][j];
 
-			/*store_kp.erase(
+			store_kp.erase(
 				std::remove_if(
 					store_kp.begin(), store_kp.end(),
 					[&to_remove](KeyPoint k) { return !to_remove.contains(k.pt); }),
 					store_kp.end()
-				);*/
+				);
 			
 			results[i][j] = store_kp;
 			descriptor_extract->compute(I, store_kp, current_d);
@@ -318,8 +326,8 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 
 	BOW_extract->setVocabulary(codeBook);
 
-	int category = Dataset.testImages.size();
-	int image = Dataset.testImages[0].size();
+	int category = Dataset.trainingImages.size();
+	int image = Dataset.trainingImages[0].size();
 	vector<vector<vector<KeyPoint>>> results;
 	vector<KeyPoint> store_kp;
 
@@ -327,23 +335,23 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 	Mat current_d;
 	Mat BOW_obj;
 
-	results.resize(Dataset.testImages.size());
+	results.resize(Dataset.trainingImages.size());
 	cout << "Generating Keypoints" << endl;
 	for (int i = 0; i < category; i++) {
-		results[i].resize(Dataset.testImages[i].size());
+		results[i].resize(Dataset.trainingImages[i].size());
 		for (int j = 0; j < image; j++) {
 
-			I = Dataset.testImages[i][j];
+			I = Dataset.trainingImages[i][j];
 			feature_detector->detect(I, store_kp);
 
-			Rect to_remove = Dataset.testAnnotations[i][j];
+			Rect to_remove = Dataset.trainingAnnotations[i][j];
 
-			/*store_kp.erase(
+			store_kp.erase(
 				std::remove_if(
 					store_kp.begin(), store_kp.end(),
 					[&to_remove](KeyPoint k) { return !to_remove.contains(k.pt); }),
 				store_kp.end()
-				);*/
+				);
 
 			results[i][j] = store_kp;
 
@@ -369,7 +377,7 @@ void Test(const Caltech101 &Dataset, const Mat codeBook, const vector<vector<Mat
 	for (int i = 0; i < category; i++) {
 		for (int j = 0; j < image; j++) {
 
-			I = Dataset.testImages[i][j];
+			I = Dataset.trainingImages[i][j];
 			BOW_extract->compute2(I, results[i][j], BOW_obj);
 
 			/*cout << "Size of test Imag: " << BOW_obj.size() << endl;
